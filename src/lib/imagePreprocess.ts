@@ -1,5 +1,15 @@
-const MIN_LONG_EDGE = 768;
-const MAX_LONG_EDGE = 2048;
+import { isMobileDevice } from "./deviceUtils";
+
+const DESKTOP_MIN_LONG_EDGE = 768;
+const DESKTOP_MAX_LONG_EDGE = 2048;
+const MOBILE_MAX_LONG_EDGE = 1024;
+
+function getLimits() {
+  if (isMobileDevice()) {
+    return { minLong: 0, maxLong: MOBILE_MAX_LONG_EDGE };
+  }
+  return { minLong: DESKTOP_MIN_LONG_EDGE, maxLong: DESKTOP_MAX_LONG_EDGE };
+}
 
 function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -24,18 +34,15 @@ function canvasToBlob(canvas: HTMLCanvasElement): Promise<Blob> {
   });
 }
 
-/**
- * Upscale les petites images et limite les très grandes
- * pour maximiser la précision du modèle (inférence à 1024px).
- */
 export async function prepareImageForRemoval(file: File): Promise<Blob> {
   const img = await loadImageFromBlob(file);
   const { width, height } = img;
   const longEdge = Math.max(width, height);
+  const { minLong, maxLong } = getLimits();
 
   let targetLong = longEdge;
-  if (longEdge < MIN_LONG_EDGE) targetLong = MIN_LONG_EDGE;
-  if (longEdge > MAX_LONG_EDGE) targetLong = MAX_LONG_EDGE;
+  if (minLong > 0 && longEdge < minLong) targetLong = minLong;
+  if (longEdge > maxLong) targetLong = maxLong;
 
   if (targetLong === longEdge) {
     return file;
@@ -66,6 +73,14 @@ export async function restoreOriginalDimensions(
     loadImageFromBlob(blob),
     loadImageFromBlob(originalFile),
   ]);
+
+  const longOriginal = Math.max(
+    originalImg.naturalWidth,
+    originalImg.naturalHeight
+  );
+  if (isMobileDevice() && longOriginal > MOBILE_MAX_LONG_EDGE) {
+    return blob;
+  }
 
   if (
     resultImg.naturalWidth === originalImg.naturalWidth &&
