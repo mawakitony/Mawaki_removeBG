@@ -3,63 +3,30 @@ import {
   prepareImageForRemoval,
   restoreOriginalDimensions,
 } from "./imagePreprocess";
-import { postProcessCutout, refineMaskBlob } from "./maskRefinement";
-import { removeBackgroundWithRmbg } from "./rmbgRemoval";
+import { postProcessCutout } from "./maskRefinement";
 
-function supportsWebGpu(): boolean {
-  if (typeof navigator === "undefined") return false;
-  return "gpu" in navigator;
-}
+const IMGLY_PUBLIC_PATH = "/bg-removal-data/";
 
 function buildImglyConfig(onProgress?: (progress: number) => void): Config {
   return {
-    model: "isnet",
-    device: supportsWebGpu() ? "gpu" : "cpu",
+    publicPath: IMGLY_PUBLIC_PATH,
+    model: "isnet_quint8",
+    device: "cpu",
     rescale: true,
-    proxyToWorker: true,
+    proxyToWorker: false,
+    debug: process.env.NODE_ENV === "development",
     output: { format: "image/png", quality: 1 },
     progress: onProgress
       ? (key, current, total) => {
           if (total > 0) {
             const isDownload = key.includes("fetch") || key.includes("download");
-            const base = isDownload ? 0 : 15;
-            const range = isDownload ? 15 : 70;
+            const base = isDownload ? 5 : 20;
+            const range = isDownload ? 25 : 65;
             onProgress(base + Math.round((current / total) * range));
           }
         }
       : undefined,
   };
-}
-
-async function removeWithImgly(
-  prepared: Blob,
-  originalFile: File,
-  onProgress?: (progress: number) => void
-): Promise<Blob> {
-  const { segmentForeground, applySegmentationMask } = await import(
-    "@imgly/background-removal"
-  );
-  const config = buildImglyConfig(onProgress);
-
-  const maskBlob = await segmentForeground(prepared, config);
-  onProgress?.(82);
-  const refinedMask = await refineMaskBlob(maskBlob);
-  const cutout = await applySegmentationMask(prepared, refinedMask, config);
-  onProgress?.(92);
-  const processed = await postProcessCutout(cutout, prepared);
-  return restoreOriginalDimensions(processed, originalFile);
-}
-
-async function removeWithRmbgFallback(
-  prepared: Blob,
-  originalFile: File,
-  onProgress?: (progress: number) => void
-): Promise<Blob> {
-  onProgress?.(20);
-  const cutout = await removeBackgroundWithRmbg(prepared, onProgress);
-  onProgress?.(90);
-  const processed = await postProcessCutout(cutout, prepared);
-  return restoreOriginalDimensions(processed, originalFile);
 }
 
 let preloadPromise: Promise<void> | null = null;
@@ -81,22 +48,23 @@ export async function removeImageBackground(
   onProgress?: (progress: number) => void
 ): Promise<Blob> {
   onProgress?.(2);
-  await preloadRemovalModel(onProgress);
-  const prepared = await prepareImageForRemoval(file);
-  onProgress?.(8);
 
-  try {
-    const result = await removeWithImgly(prepared, file, onProgress);
-    onProgress?.(100);
-    return result;
-  } catch {
-    onProgress?.(12);
-    try {
-      const result = await removeWithRmbgFallback(prepared, file, onProgress);
-      onProgress?.(100);
-      return result;
-    } catch {
-      throw new Error("Background removal failed");
-    }
-  }
+  const { removeBackground, preload } = await import(
+    "@imgly/background-removal"
+  );
+  const config = buildImglyConfig(onProgress);
+
+  await preload(config);
+  onProgress?.(30);
+
+  const prepared = await prepareImageForRemoval(file);
+  onProgress?.(35);
+
+  const cutout = await removeBackground(prepared, config);
+  onProgress?.(90);
+
+  const processed = await postProcessCutout(cutout, prepared);
+  const final = await restoreOriginalDimensions(processed, file);
+  onProgress?.(100);
+  return final;
 }

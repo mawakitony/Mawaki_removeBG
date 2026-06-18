@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# imgly model assets (téléchargés au build)
+/public/bg-removal-data/
+.tmp-imgly/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

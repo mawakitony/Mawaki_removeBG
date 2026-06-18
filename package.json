@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "setup:imgly": "node scripts/setup-imgly-assets.mjs",
+    "dev": "npm run setup:imgly && next dev",
+    "build": "npm run setup:imgly && next build",
     "start": "next start",
     "lint": "eslint"
   },
