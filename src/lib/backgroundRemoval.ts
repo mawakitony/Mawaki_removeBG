@@ -4,8 +4,7 @@ import {
   restoreOriginalDimensions,
 } from "./imagePreprocess";
 import { postProcessCutout } from "./maskRefinement";
-import { removeBackgroundWithRmbg } from "./rmbgRemoval";
-import { isCrossOriginIsolated } from "./deviceUtils";
+import { removeBackgroundWithModnet } from "./modnetRemoval";
 
 const IMGLY_PUBLIC_PATH = "/bg-removal-data/";
 
@@ -60,20 +59,20 @@ async function removeWithImgly(
   return restoreOriginalDimensions(processed, originalFile);
 }
 
-async function removeWithRmbg(
+async function removeWithModnet(
   prepared: Blob,
   originalFile: File,
   onProgress?: (progress: number) => void
 ): Promise<Blob> {
-  onProgress?.(15);
-  const cutout = await removeBackgroundWithRmbg(prepared, onProgress);
+  onProgress?.(10);
+  const cutout = await removeBackgroundWithModnet(prepared, onProgress);
   onProgress?.(88);
   const processed = await safePostProcess(cutout, prepared);
   return restoreOriginalDimensions(processed, originalFile);
 }
 
 export async function preloadRemovalModel(): Promise<void> {
-  // Chargement paresseux à l'upload — évite la RAM au démarrage.
+  // Chargement paresseux à l'upload.
 }
 
 export async function removeImageBackground(
@@ -87,27 +86,22 @@ export async function removeImageBackground(
   const errors: unknown[] = [];
 
   try {
-    const result = await removeWithRmbg(prepared, file, onProgress);
+    const result = await removeWithImgly(prepared, file, onProgress);
     onProgress?.(100);
     return result;
   } catch (error) {
     errors.push(error);
   }
 
-  if (isCrossOriginIsolated()) {
-    try {
-      onProgress?.(12);
-      const result = await removeWithImgly(prepared, file, onProgress);
-      onProgress?.(100);
-      return result;
-    } catch (error) {
-      errors.push(error);
-    }
+  try {
+    onProgress?.(12);
+    const result = await removeWithModnet(prepared, file, onProgress);
+    onProgress?.(100);
+    return result;
+  } catch (error) {
+    errors.push(error);
   }
 
-  if (process.env.NODE_ENV === "development") {
-    console.error("Background removal failed:", errors);
-  }
-
+  console.error("Background removal failed:", errors);
   throw new Error("Background removal failed");
 }
