@@ -221,7 +221,7 @@ export function useImageEditor() {
   }, []);
 
   useEffect(() => {
-    if (!processedBlob) {
+    if (!processedBlob || !cropEnabled) {
       setExportPreviewUrl((prev) => {
         revokeObjectUrl(prev);
         return null;
@@ -229,7 +229,7 @@ export function useImageEditor() {
       return;
     }
 
-    const activeCrop = cropEnabled ? croppedAreaPixels : null;
+    const activeCrop = croppedAreaPixels;
     const requestId = ++previewRequestRef.current;
 
     const timer = window.setTimeout(async () => {

@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AnimatedBackground } from "@/components/AnimatedBackground";
 import { Header } from "@/components/Header";
@@ -11,16 +10,11 @@ import { UsageGuide } from "@/components/UsageGuide";
 import { NeonPanel } from "@/components/NeonPanel";
 import { useImageEditor } from "@/hooks/useImageEditor";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { preloadRemovalModel } from "@/lib/backgroundRemoval";
 import { Shield, Zap, Lock, Radio } from "lucide-react";
 
 export default function BgRemoverApp() {
   const editor = useImageEditor();
   const { t } = useLanguage();
-
-  useEffect(() => {
-    preloadRemovalModel().catch(() => {});
-  }, []);
 
   return (
     <main className="relative min-h-screen overflow-hidden">

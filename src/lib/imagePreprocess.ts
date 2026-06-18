@@ -1,5 +1,5 @@
-const MIN_LONG_EDGE = 1024;
-const MAX_LONG_EDGE = 4096;
+const MIN_LONG_EDGE = 768;
+const MAX_LONG_EDGE = 2048;
 
 function loadImageFromBlob(blob: Blob): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
